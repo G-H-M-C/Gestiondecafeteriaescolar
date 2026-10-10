@@ -1,6 +1,8 @@
-﻿using GestionCafeteriaEscolar.API.Dtos;
+﻿using GestionCafeteriaEscolar.API.Data;
+using GestionCafeteriaEscolar.API.Dtos;
 using GestionCafeteriaEscolar.API.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace GestionCafeteriaEscolar.API.Controllers;
 
@@ -8,124 +10,158 @@ namespace GestionCafeteriaEscolar.API.Controllers;
 [Route("api/[controller]")]
 public class DetallesVentaController : ControllerBase
 {
-    // Lista en memoria (se reemplazará por base de datos en la Tarea 2)
-    public static readonly List<DetalleVenta> Detalles = new();
+    private readonly ApplicationDbContext _context;
 
-    private static int _siguienteId = 1;
-
-    // GET api/detallesventa  -> 200
-    [HttpGet]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<IEnumerable<DetalleVentaResponseDto>> GetAll()
+    public DetallesVentaController(ApplicationDbContext context)
     {
-        return Ok(Detalles.Select(ToResponse));
+        _context = context;
     }
 
-    // GET api/detallesventa/1  -> 200 o 404
-    [HttpGet("{id:int}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<DetalleVentaResponseDto> GetById(int id)
+    [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<DetalleVentaResponseDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<DetalleVentaResponseDto>>> GetAll()
     {
-        var detalle = Detalles.FirstOrDefault(d => d.Id == id);
+        var detalles = await _context.DetallesVenta
+            .AsNoTracking()
+            .OrderBy(d => d.Id)
+            .ToListAsync();
+
+        return Ok(detalles.Select(ToResponse));
+    }
+
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(typeof(DetalleVentaResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<DetalleVentaResponseDto>> GetById(int id)
+    {
+        var detalle = await _context.DetallesVenta.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id);
         if (detalle is null)
-            return NotFound(new { mensaje = $"No existe un detalle de venta con Id {id}." });
+        {
+            return NotFound();
+        }
 
         return Ok(ToResponse(detalle));
     }
 
-    // POST api/detallesventa  -> 201 o 400
     [HttpPost]
-    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(DetalleVentaResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public ActionResult<DetalleVentaResponseDto> Create(DetalleVentaCreateDto dto)
+    public async Task<ActionResult<DetalleVentaResponseDto>> Create(DetalleVentaCreateDto dto)
     {
-        if (!VentasController.Ventas.Any(v => v.Id == dto.VentaId))
-            return BadRequest(new { mensaje = $"La venta con Id {dto.VentaId} no existe." });
+        var ventaExiste = await _context.Ventas.AnyAsync(v => v.Id == dto.VentaId);
+        if (!ventaExiste)
+        {
+            return BadRequest($"La venta con Id {dto.VentaId} no existe.");
+        }
 
-        var producto = ProductosController.Productos.FirstOrDefault(p => p.Id == dto.ProductoId);
+        var producto = await _context.Productos.FindAsync(dto.ProductoId);
         if (producto is null)
-            return BadRequest(new { mensaje = $"El producto con Id {dto.ProductoId} no existe." });
+        {
+            return BadRequest($"El producto con Id {dto.ProductoId} no existe.");
+        }
 
         var detalle = new DetalleVenta
         {
-            Id = _siguienteId++,
             VentaId = dto.VentaId,
             ProductoId = dto.ProductoId,
             Cantidad = dto.Cantidad,
-            PrecioUnitario = producto.Precio,              // el precio sale del producto
-            Subtotal = producto.Precio * dto.Cantidad      // el subtotal se calcula
+            PrecioUnitario = producto.Precio,
+            Subtotal = producto.Precio * dto.Cantidad
         };
 
-        Detalles.Add(detalle);
-        RecalcularTotal(detalle.VentaId);
+        _context.DetallesVenta.Add(detalle);
+        await _context.SaveChangesAsync();
+        await RecalcularTotalAsync(detalle.VentaId);
 
         return CreatedAtAction(nameof(GetById), new { id = detalle.Id }, ToResponse(detalle));
     }
 
-    // PUT api/detallesventa/1  -> 200, 400 o 404
     [HttpPut("{id:int}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(DetalleVentaResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<DetalleVentaResponseDto> Update(int id, DetalleVentaUpdateDto dto)
+    public async Task<ActionResult<DetalleVentaResponseDto>> Update(int id, DetalleVentaUpdateDto dto)
     {
-        var detalle = Detalles.FirstOrDefault(d => d.Id == id);
+        var detalle = await _context.DetallesVenta.FindAsync(id);
         if (detalle is null)
-            return NotFound(new { mensaje = $"No existe un detalle de venta con Id {id}." });
+        {
+            return NotFound();
+        }
 
-        if (!VentasController.Ventas.Any(v => v.Id == dto.VentaId))
-            return BadRequest(new { mensaje = $"La venta con Id {dto.VentaId} no existe." });
+        var ventaExiste = await _context.Ventas.AnyAsync(v => v.Id == dto.VentaId);
+        if (!ventaExiste)
+        {
+            return BadRequest($"La venta con Id {dto.VentaId} no existe.");
+        }
 
-        var producto = ProductosController.Productos.FirstOrDefault(p => p.Id == dto.ProductoId);
+        var producto = await _context.Productos.FindAsync(dto.ProductoId);
         if (producto is null)
-            return BadRequest(new { mensaje = $"El producto con Id {dto.ProductoId} no existe." });
+        {
+            return BadRequest($"El producto con Id {dto.ProductoId} no existe.");
+        }
 
-        var ventaAnterior = detalle.VentaId;
+        var ventaAnteriorId = detalle.VentaId;
 
         detalle.VentaId = dto.VentaId;
         detalle.ProductoId = dto.ProductoId;
         detalle.Cantidad = dto.Cantidad;
         detalle.PrecioUnitario = producto.Precio;
         detalle.Subtotal = producto.Precio * dto.Cantidad;
+        await _context.SaveChangesAsync();
 
-        RecalcularTotal(ventaAnterior);
-        RecalcularTotal(detalle.VentaId);
+        await RecalcularTotalAsync(detalle.VentaId);
+        if (ventaAnteriorId != detalle.VentaId)
+        {
+            await RecalcularTotalAsync(ventaAnteriorId);
+        }
 
         return Ok(ToResponse(detalle));
     }
 
-    // DELETE api/detallesventa/1  -> 204 o 404
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult Delete(int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var detalle = Detalles.FirstOrDefault(d => d.Id == id);
+        var detalle = await _context.DetallesVenta.FindAsync(id);
         if (detalle is null)
-            return NotFound(new { mensaje = $"No existe un detalle de venta con Id {id}." });
+        {
+            return NotFound();
+        }
 
-        Detalles.Remove(detalle);
-        RecalcularTotal(detalle.VentaId);
+        var ventaId = detalle.VentaId;
+
+        _context.DetallesVenta.Remove(detalle);
+        await _context.SaveChangesAsync();
+        await RecalcularTotalAsync(ventaId);
+
         return NoContent();
     }
 
-    // Recalcula el total de una venta sumando los subtotales de sus detalles
-    private static void RecalcularTotal(int ventaId)
+    private async Task RecalcularTotalAsync(int ventaId)
     {
-        var venta = VentasController.Ventas.FirstOrDefault(v => v.Id == ventaId);
-        if (venta is null) return;
+        var venta = await _context.Ventas.FindAsync(ventaId);
+        if (venta is null)
+        {
+            return;
+        }
 
-        venta.Total = Detalles.Where(d => d.VentaId == ventaId).Sum(d => d.Subtotal);
+        venta.Total = await _context.DetallesVenta
+            .Where(d => d.VentaId == ventaId)
+            .SumAsync(d => d.Subtotal);
+        await _context.SaveChangesAsync();
     }
 
-    private static DetalleVentaResponseDto ToResponse(DetalleVenta d) => new()
+    private static DetalleVentaResponseDto ToResponse(DetalleVenta detalle)
     {
-        Id = d.Id,
-        VentaId = d.VentaId,
-        ProductoId = d.ProductoId,
-        Cantidad = d.Cantidad,
-        PrecioUnitario = d.PrecioUnitario,
-        Subtotal = d.Subtotal
-    };
+        return new DetalleVentaResponseDto
+        {
+            Id = detalle.Id,
+            VentaId = detalle.VentaId,
+            ProductoId = detalle.ProductoId,
+            Cantidad = detalle.Cantidad,
+            PrecioUnitario = detalle.PrecioUnitario,
+            Subtotal = detalle.Subtotal
+        };
+    }
 }
