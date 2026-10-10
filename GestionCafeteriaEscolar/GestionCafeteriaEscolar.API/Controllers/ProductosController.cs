@@ -1,6 +1,8 @@
-﻿using GestionCafeteriaEscolar.API.Dtos;
+﻿using GestionCafeteriaEscolar.API.Data;
+using GestionCafeteriaEscolar.API.Dtos;
 using GestionCafeteriaEscolar.API.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace GestionCafeteriaEscolar.API.Controllers;
 
@@ -8,91 +10,109 @@ namespace GestionCafeteriaEscolar.API.Controllers;
 [Route("api/[controller]")]
 public class ProductosController : ControllerBase
 {
-    // Lista en memoria (se reemplazará por base de datos en la Tarea 2)
-    public static readonly List<Producto> Productos = new()
-    {
-        new Producto { Id = 1, Nombre = "Sándwich de jamón", Precio = 25m, Stock = 50 },
-        new Producto { Id = 2, Nombre = "Jugo de naranja", Precio = 15m, Stock = 40 }
-    };
+    private readonly ApplicationDbContext _context;
 
-    private static int _siguienteId = 3;
-
-    // GET api/productos  -> 200
-    [HttpGet]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public ActionResult<IEnumerable<ProductoResponseDto>> GetAll()
+    public ProductosController(ApplicationDbContext context)
     {
-        return Ok(Productos.Select(ToResponse));
+        _context = context;
     }
 
-    // GET api/productos/1  -> 200 o 404
-    [HttpGet("{id:int}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<ProductoResponseDto> GetById(int id)
+    [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<ProductoResponseDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<ProductoResponseDto>>> GetAll()
     {
-        var producto = Productos.FirstOrDefault(p => p.Id == id);
+        var productos = await _context.Productos
+            .AsNoTracking()
+            .OrderBy(p => p.Id)
+            .ToListAsync();
+
+        return Ok(productos.Select(ToResponse));
+    }
+
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(typeof(ProductoResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ProductoResponseDto>> GetById(int id)
+    {
+        var producto = await _context.Productos.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
         if (producto is null)
-            return NotFound(new { mensaje = $"No existe un producto con Id {id}." });
+        {
+            return NotFound();
+        }
 
         return Ok(ToResponse(producto));
     }
 
-    // POST api/productos  -> 201 o 400
     [HttpPost]
-    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProductoResponseDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public ActionResult<ProductoResponseDto> Create(ProductoCreateDto dto)
+    public async Task<ActionResult<ProductoResponseDto>> Create(ProductoCreateDto dto)
     {
         var producto = new Producto
         {
-            Id = _siguienteId++,
             Nombre = dto.Nombre,
             Precio = dto.Precio,
             Stock = dto.Stock
         };
 
-        Productos.Add(producto);
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
         return CreatedAtAction(nameof(GetById), new { id = producto.Id }, ToResponse(producto));
     }
 
-    // PUT api/productos/1  -> 200, 400 o 404
     [HttpPut("{id:int}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProductoResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public ActionResult<ProductoResponseDto> Update(int id, ProductoUpdateDto dto)
+    public async Task<ActionResult<ProductoResponseDto>> Update(int id, ProductoUpdateDto dto)
     {
-        var producto = Productos.FirstOrDefault(p => p.Id == id);
+        var producto = await _context.Productos.FindAsync(id);
         if (producto is null)
-            return NotFound(new { mensaje = $"No existe un producto con Id {id}." });
+        {
+            return NotFound();
+        }
 
         producto.Nombre = dto.Nombre;
         producto.Precio = dto.Precio;
         producto.Stock = dto.Stock;
+        await _context.SaveChangesAsync();
 
         return Ok(ToResponse(producto));
     }
 
-    // DELETE api/productos/1  -> 204 o 404
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult Delete(int id)
+    public async Task<IActionResult> Delete(int id)
     {
-        var producto = Productos.FirstOrDefault(p => p.Id == id);
+        var producto = await _context.Productos.FindAsync(id);
         if (producto is null)
-            return NotFound(new { mensaje = $"No existe un producto con Id {id}." });
+        {
+            return NotFound();
+        }
 
-        Productos.Remove(producto);
+        var tieneDetalles = await _context.DetallesVenta.AnyAsync(d => d.ProductoId == id);
+        if (tieneDetalles)
+        {
+            return BadRequest("No se puede eliminar el producto porque tiene ventas registradas.");
+        }
+
+        _context.Productos.Remove(producto);
+        await _context.SaveChangesAsync();
+
         return NoContent();
     }
 
-    private static ProductoResponseDto ToResponse(Producto p) => new()
+    private static ProductoResponseDto ToResponse(Producto producto)
     {
-        Id = p.Id,
-        Nombre = p.Nombre,
-        Precio = p.Precio,
-        Stock = p.Stock
-    };
+        return new ProductoResponseDto
+        {
+            Id = producto.Id,
+            Nombre = producto.Nombre,
+            Precio = producto.Precio,
+            Stock = producto.Stock
+        };
+    }
 }
