@@ -1,6 +1,11 @@
-﻿namespace GestionCafeteriaEscolar.API.Dtos
+﻿namespace GestionCafeteriaEscolar.API.Dtos;
+
+public class DetalleVentaResponseDto
 {
-    public class DetalleVentaResponseDto
-    {
-    }
+    public int Id { get; set; }
+    public int VentaId { get; set; }
+    public int ProductoId { get; set; }
+    public int Cantidad { get; set; }
+    public decimal PrecioUnitario { get; set; }
+    public decimal Subtotal { get; set; }
 }
