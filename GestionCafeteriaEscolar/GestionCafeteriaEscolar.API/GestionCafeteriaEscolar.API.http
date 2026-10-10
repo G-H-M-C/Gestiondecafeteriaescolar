@@ -1,0 +1,6 @@
+@GestionCafeteriaEscolar.API_HostAddress = http://localhost:5039
+
+GET {{GestionCafeteriaEscolar.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
