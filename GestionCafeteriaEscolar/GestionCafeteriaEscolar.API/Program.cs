@@ -1,4 +1,4 @@
-using GestionCafeteriaEscolar.API.Data;
+using GestionCafeteriaEscolar.Infrastructure.Context;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
