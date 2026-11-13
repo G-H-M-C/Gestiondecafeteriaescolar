@@ -1,6 +1,6 @@
 ﻿using GestionCafeteriaEscolar.API.Data;
 using GestionCafeteriaEscolar.API.Dtos;
-using GestionCafeteriaEscolar.API.Models;
+using GestionCafeteriaEscolar.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 

@@ -1,4 +1,4 @@
-﻿using GestionCafeteriaEscolar.API.Models;
+﻿using GestionCafeteriaEscolar.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace GestionCafeteriaEscolar.API.Data;
