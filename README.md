@@ -7,11 +7,29 @@ API REST para registrar productos, estudiantes y ventas diarias de una cafeterí
 - Entity Framework Core 10 (Code First) con SQL Server
 - Swagger / OpenAPI para probar los endpoints
 
+## Arquitectura en capas
+La solución está dividida en tres proyectos:
+
+```
+GestionCafeteriaEscolar/
+├── GestionCafeteriaEscolar.API              # Controllers, Dtos, Program.cs
+├── GestionCafeteriaEscolar.Domain           # Core (BaseEntity) y Entities
+└── GestionCafeteriaEscolar.Infrastructure   # Context, Migrations, Core (GenericRepository) y Repositories
+```
+
+- **Domain**: contiene `Core/BaseEntity.cs` y las entidades (`Producto`, `Estudiante`, `Venta`, `DetalleVenta`). No depende de Entity Framework ni de ASP.NET.
+- **Infrastructure**: contiene el `ApplicationDbContext`, las migraciones, el `GenericRepository<T>` y los repositorios propios `EstudianteRepository` y `DetalleVentaRepository`.
+- **API**: contiene los controladores y los DTOs. Los controladores acceden a los datos solo a través de los repositorios.
+
+Referencias entre proyectos: la API referencia a Infrastructure y a Domain, e Infrastructure referencia a Domain.
+
 ## Entidades
 - **Producto**: Id, Nombre, Precio, Stock
 - **Estudiante**: Id, Nombre, Matrícula, Grado
 - **Venta**: Id, EstudianteId, Fecha, Total
 - **DetalleVenta**: Id, VentaId, ProductoId, Cantidad, PrecioUnitario, Subtotal
+
+Todas heredan de `BaseEntity` (propiedad `Id`).
 
 Relaciones: un Estudiante tiene muchas Ventas, una Venta tiene muchos DetalleVenta y un Producto aparece en muchos DetalleVenta.
 
@@ -39,15 +57,15 @@ Recursos: `Productos`, `Estudiantes`, `Ventas` y `DetallesVenta`.
 - Los datos de entrada se reciben con DTOs y se validan con Data Annotations. Respuestas: 200, 201, 204, 400 y 404.
 
 ## Base de datos
-- `ApplicationDbContext` está en la carpeta `Data`.
-- La cadena de conexión `DefaultConnection` está en `appsettings.json` y usa SQL Server LocalDB con autenticación de Windows (no incluye contraseñas).
-- Las migraciones están en la carpeta `Migrations`.
+- `ApplicationDbContext` está en `GestionCafeteriaEscolar.Infrastructure/Context`.
+- La cadena de conexión `DefaultConnection` está en `appsettings.json` de la API y usa SQL Server LocalDB con autenticación de Windows (no incluye contraseñas).
+- Las migraciones están en `GestionCafeteriaEscolar.Infrastructure/Migrations`.
 - Se incluyen datos iniciales de ejemplo (2 productos y 2 estudiantes).
 
 ## Cómo ejecutarlo
 1. Clonar el repositorio y abrir `GestionCafeteriaEscolar.slnx` en Visual Studio.
 2. Instalar la herramienta de EF Core si no la tienes: `dotnet tool install --global dotnet-ef`
-3. Crear la base de datos desde la carpeta `GestionCafeteriaEscolar.API`: `dotnet ef database update`
+3. Crear la base de datos desde la carpeta `GestionCafeteriaEscolar` (la que contiene el `.slnx`): `dotnet ef database update --project GestionCafeteriaEscolar.Infrastructure --startup-project GestionCafeteriaEscolar.API`
 4. Ejecutar el proyecto con el perfil https y abrir `https://localhost:7171/swagger`.
 
 Si usas otra instancia de SQL Server, cambia el valor de `DefaultConnection` en `appsettings.json`.
