@@ -1,7 +1,7 @@
 ﻿using GestionCafeteriaEscolar.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace GestionCafeteriaEscolar.API.Data;
+namespace GestionCafeteriaEscolar.Infrastructure.Context;
 
 public class ApplicationDbContext : DbContext
 {
