@@ -22,7 +22,7 @@ namespace GestionCafeteriaEscolar.API.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("GestionCafeteriaEscolar.API.Models.DetalleVenta", b =>
+            modelBuilder.Entity("GestionCafeteriaEscolar.Domain.Entities.DetalleVenta", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -56,7 +56,7 @@ namespace GestionCafeteriaEscolar.API.Migrations
                     b.ToTable("DetallesVenta");
                 });
 
-            modelBuilder.Entity("GestionCafeteriaEscolar.API.Models.Estudiante", b =>
+            modelBuilder.Entity("GestionCafeteriaEscolar.Domain.Entities.Estudiante", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -103,7 +103,7 @@ namespace GestionCafeteriaEscolar.API.Migrations
                         });
                 });
 
-            modelBuilder.Entity("GestionCafeteriaEscolar.API.Models.Producto", b =>
+            modelBuilder.Entity("GestionCafeteriaEscolar.Domain.Entities.Producto", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -144,7 +144,7 @@ namespace GestionCafeteriaEscolar.API.Migrations
                         });
                 });
 
-            modelBuilder.Entity("GestionCafeteriaEscolar.API.Models.Venta", b =>
+            modelBuilder.Entity("GestionCafeteriaEscolar.Domain.Entities.Venta", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -169,24 +169,24 @@ namespace GestionCafeteriaEscolar.API.Migrations
                     b.ToTable("Ventas");
                 });
 
-            modelBuilder.Entity("GestionCafeteriaEscolar.API.Models.DetalleVenta", b =>
+            modelBuilder.Entity("GestionCafeteriaEscolar.Domain.Entities.DetalleVenta", b =>
                 {
-                    b.HasOne("GestionCafeteriaEscolar.API.Models.Producto", null)
+                    b.HasOne("GestionCafeteriaEscolar.Domain.Entities.Producto", null)
                         .WithMany()
                         .HasForeignKey("ProductoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("GestionCafeteriaEscolar.API.Models.Venta", null)
+                    b.HasOne("GestionCafeteriaEscolar.Domain.Entities.Venta", null)
                         .WithMany()
                         .HasForeignKey("VentaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("GestionCafeteriaEscolar.API.Models.Venta", b =>
+            modelBuilder.Entity("GestionCafeteriaEscolar.Domain.Entities.Venta", b =>
                 {
-                    b.HasOne("GestionCafeteriaEscolar.API.Models.Estudiante", null)
+                    b.HasOne("GestionCafeteriaEscolar.Domain.Entities.Estudiante", null)
                         .WithMany()
                         .HasForeignKey("EstudianteId")
                         .OnDelete(DeleteBehavior.Restrict)
