@@ -1,8 +1,8 @@
-﻿using GestionCafeteriaEscolar.Infrastructure.Context;
-using GestionCafeteriaEscolar.API.Dtos;
+﻿using GestionCafeteriaEscolar.API.Dtos;
 using GestionCafeteriaEscolar.Domain.Entities;
+using GestionCafeteriaEscolar.Infrastructure.Core;
+using GestionCafeteriaEscolar.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace GestionCafeteriaEscolar.API.Controllers;
 
@@ -10,21 +10,22 @@ namespace GestionCafeteriaEscolar.API.Controllers;
 [Route("api/[controller]")]
 public class ProductosController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly GenericRepository<Producto> _productoRepository;
+    private readonly DetalleVentaRepository _detalleVentaRepository;
 
-    public ProductosController(ApplicationDbContext context)
+    public ProductosController(
+        GenericRepository<Producto> productoRepository,
+        DetalleVentaRepository detalleVentaRepository)
     {
-        _context = context;
+        _productoRepository = productoRepository;
+        _detalleVentaRepository = detalleVentaRepository;
     }
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<ProductoResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<ProductoResponseDto>>> GetAll()
     {
-        var productos = await _context.Productos
-            .AsNoTracking()
-            .OrderBy(p => p.Id)
-            .ToListAsync();
+        var productos = await _productoRepository.GetAllAsync();
 
         return Ok(productos.Select(ToResponse));
     }
@@ -34,7 +35,7 @@ public class ProductosController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ProductoResponseDto>> GetById(int id)
     {
-        var producto = await _context.Productos.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
+        var producto = await _productoRepository.GetByIdAsync(id);
         if (producto is null)
         {
             return NotFound();
@@ -55,8 +56,7 @@ public class ProductosController : ControllerBase
             Stock = dto.Stock
         };
 
-        _context.Productos.Add(producto);
-        await _context.SaveChangesAsync();
+        await _productoRepository.AddAsync(producto);
 
         return CreatedAtAction(nameof(GetById), new { id = producto.Id }, ToResponse(producto));
     }
@@ -67,7 +67,7 @@ public class ProductosController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ProductoResponseDto>> Update(int id, ProductoUpdateDto dto)
     {
-        var producto = await _context.Productos.FindAsync(id);
+        var producto = await _productoRepository.GetByIdAsync(id);
         if (producto is null)
         {
             return NotFound();
@@ -76,7 +76,7 @@ public class ProductosController : ControllerBase
         producto.Nombre = dto.Nombre;
         producto.Precio = dto.Precio;
         producto.Stock = dto.Stock;
-        await _context.SaveChangesAsync();
+        await _productoRepository.UpdateAsync(producto);
 
         return Ok(ToResponse(producto));
     }
@@ -87,20 +87,19 @@ public class ProductosController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
-        var producto = await _context.Productos.FindAsync(id);
+        var producto = await _productoRepository.GetByIdAsync(id);
         if (producto is null)
         {
             return NotFound();
         }
 
-        var tieneDetalles = await _context.DetallesVenta.AnyAsync(d => d.ProductoId == id);
+        var tieneDetalles = await _detalleVentaRepository.AnyByProductoIdAsync(id);
         if (tieneDetalles)
         {
             return BadRequest("No se puede eliminar el producto porque tiene ventas registradas.");
         }
 
-        _context.Productos.Remove(producto);
-        await _context.SaveChangesAsync();
+        await _productoRepository.DeleteAsync(producto);
 
         return NoContent();
     }
