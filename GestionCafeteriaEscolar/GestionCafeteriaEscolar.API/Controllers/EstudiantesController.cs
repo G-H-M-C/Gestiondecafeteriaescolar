@@ -1,8 +1,7 @@
-﻿using GestionCafeteriaEscolar.Infrastructure.Context;
-using GestionCafeteriaEscolar.API.Dtos;
+﻿using GestionCafeteriaEscolar.API.Dtos;
 using GestionCafeteriaEscolar.Domain.Entities;
+using GestionCafeteriaEscolar.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace GestionCafeteriaEscolar.API.Controllers;
 
@@ -10,21 +9,18 @@ namespace GestionCafeteriaEscolar.API.Controllers;
 [Route("api/[controller]")]
 public class EstudiantesController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly EstudianteRepository _estudianteRepository;
 
-    public EstudiantesController(ApplicationDbContext context)
+    public EstudiantesController(EstudianteRepository estudianteRepository)
     {
-        _context = context;
+        _estudianteRepository = estudianteRepository;
     }
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<EstudianteResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<EstudianteResponseDto>>> GetAll()
     {
-        var estudiantes = await _context.Estudiantes
-            .AsNoTracking()
-            .OrderBy(e => e.Id)
-            .ToListAsync();
+        var estudiantes = await _estudianteRepository.GetAllAsync();
 
         return Ok(estudiantes.Select(ToResponse));
     }
@@ -34,7 +30,7 @@ public class EstudiantesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EstudianteResponseDto>> GetById(int id)
     {
-        var estudiante = await _context.Estudiantes.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id);
+        var estudiante = await _estudianteRepository.GetByIdAsync(id);
         if (estudiante is null)
         {
             return NotFound();
@@ -48,7 +44,7 @@ public class EstudiantesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<EstudianteResponseDto>> Create(EstudianteCreateDto dto)
     {
-        var matriculaExiste = await _context.Estudiantes.AnyAsync(e => e.Matricula == dto.Matricula);
+        var matriculaExiste = await _estudianteRepository.ExistsMatriculaAsync(dto.Matricula);
         if (matriculaExiste)
         {
             return BadRequest($"Ya existe un estudiante con la matrícula {dto.Matricula}.");
@@ -61,8 +57,7 @@ public class EstudiantesController : ControllerBase
             Grado = dto.Grado
         };
 
-        _context.Estudiantes.Add(estudiante);
-        await _context.SaveChangesAsync();
+        await _estudianteRepository.AddAsync(estudiante);
 
         return CreatedAtAction(nameof(GetById), new { id = estudiante.Id }, ToResponse(estudiante));
     }
@@ -73,14 +68,13 @@ public class EstudiantesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<EstudianteResponseDto>> Update(int id, EstudianteUpdateDto dto)
     {
-        var estudiante = await _context.Estudiantes.FindAsync(id);
+        var estudiante = await _estudianteRepository.GetByIdAsync(id);
         if (estudiante is null)
         {
             return NotFound();
         }
 
-        var matriculaExiste = await _context.Estudiantes
-            .AnyAsync(e => e.Matricula == dto.Matricula && e.Id != id);
+        var matriculaExiste = await _estudianteRepository.ExistsMatriculaAsync(dto.Matricula, id);
         if (matriculaExiste)
         {
             return BadRequest($"Ya existe un estudiante con la matrícula {dto.Matricula}.");
@@ -89,7 +83,7 @@ public class EstudiantesController : ControllerBase
         estudiante.Nombre = dto.Nombre;
         estudiante.Matricula = dto.Matricula;
         estudiante.Grado = dto.Grado;
-        await _context.SaveChangesAsync();
+        await _estudianteRepository.UpdateAsync(estudiante);
 
         return Ok(ToResponse(estudiante));
     }
@@ -100,20 +94,19 @@ public class EstudiantesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
-        var estudiante = await _context.Estudiantes.FindAsync(id);
+        var estudiante = await _estudianteRepository.GetByIdAsync(id);
         if (estudiante is null)
         {
             return NotFound();
         }
 
-        var tieneVentas = await _context.Ventas.AnyAsync(v => v.EstudianteId == id);
+        var tieneVentas = await _estudianteRepository.HasVentasAsync(id);
         if (tieneVentas)
         {
             return BadRequest("No se puede eliminar el estudiante porque tiene ventas registradas.");
         }
 
-        _context.Estudiantes.Remove(estudiante);
-        await _context.SaveChangesAsync();
+        await _estudianteRepository.DeleteAsync(estudiante);
 
         return NoContent();
     }

@@ -1,8 +1,8 @@
-﻿using GestionCafeteriaEscolar.Infrastructure.Context;
-using GestionCafeteriaEscolar.API.Dtos;
+﻿using GestionCafeteriaEscolar.API.Dtos;
 using GestionCafeteriaEscolar.Domain.Entities;
+using GestionCafeteriaEscolar.Infrastructure.Core;
+using GestionCafeteriaEscolar.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace GestionCafeteriaEscolar.API.Controllers;
 
@@ -10,21 +10,22 @@ namespace GestionCafeteriaEscolar.API.Controllers;
 [Route("api/[controller]")]
 public class VentasController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly GenericRepository<Venta> _ventaRepository;
+    private readonly EstudianteRepository _estudianteRepository;
 
-    public VentasController(ApplicationDbContext context)
+    public VentasController(
+        GenericRepository<Venta> ventaRepository,
+        EstudianteRepository estudianteRepository)
     {
-        _context = context;
+        _ventaRepository = ventaRepository;
+        _estudianteRepository = estudianteRepository;
     }
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<VentaResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<VentaResponseDto>>> GetAll()
     {
-        var ventas = await _context.Ventas
-            .AsNoTracking()
-            .OrderBy(v => v.Id)
-            .ToListAsync();
+        var ventas = await _ventaRepository.GetAllAsync();
 
         return Ok(ventas.Select(ToResponse));
     }
@@ -34,7 +35,7 @@ public class VentasController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<VentaResponseDto>> GetById(int id)
     {
-        var venta = await _context.Ventas.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id);
+        var venta = await _ventaRepository.GetByIdAsync(id);
         if (venta is null)
         {
             return NotFound();
@@ -48,8 +49,8 @@ public class VentasController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<VentaResponseDto>> Create(VentaCreateDto dto)
     {
-        var estudianteExiste = await _context.Estudiantes.AnyAsync(e => e.Id == dto.EstudianteId);
-        if (!estudianteExiste)
+        var estudiante = await _estudianteRepository.GetByIdAsync(dto.EstudianteId);
+        if (estudiante is null)
         {
             return BadRequest($"El estudiante con Id {dto.EstudianteId} no existe.");
         }
@@ -61,8 +62,7 @@ public class VentasController : ControllerBase
             Total = 0
         };
 
-        _context.Ventas.Add(venta);
-        await _context.SaveChangesAsync();
+        await _ventaRepository.AddAsync(venta);
 
         return CreatedAtAction(nameof(GetById), new { id = venta.Id }, ToResponse(venta));
     }
@@ -73,20 +73,20 @@ public class VentasController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<VentaResponseDto>> Update(int id, VentaUpdateDto dto)
     {
-        var venta = await _context.Ventas.FindAsync(id);
+        var venta = await _ventaRepository.GetByIdAsync(id);
         if (venta is null)
         {
             return NotFound();
         }
 
-        var estudianteExiste = await _context.Estudiantes.AnyAsync(e => e.Id == dto.EstudianteId);
-        if (!estudianteExiste)
+        var estudiante = await _estudianteRepository.GetByIdAsync(dto.EstudianteId);
+        if (estudiante is null)
         {
             return BadRequest($"El estudiante con Id {dto.EstudianteId} no existe.");
         }
 
         venta.EstudianteId = dto.EstudianteId;
-        await _context.SaveChangesAsync();
+        await _ventaRepository.UpdateAsync(venta);
 
         return Ok(ToResponse(venta));
     }
@@ -96,15 +96,14 @@ public class VentasController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
-        var venta = await _context.Ventas.FindAsync(id);
+        var venta = await _ventaRepository.GetByIdAsync(id);
         if (venta is null)
         {
             return NotFound();
         }
 
         // Los detalles de la venta se eliminan en cascada en la base de datos.
-        _context.Ventas.Remove(venta);
-        await _context.SaveChangesAsync();
+        await _ventaRepository.DeleteAsync(venta);
 
         return NoContent();
     }

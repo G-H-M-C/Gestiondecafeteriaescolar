@@ -1,8 +1,8 @@
-﻿using GestionCafeteriaEscolar.Infrastructure.Context;
-using GestionCafeteriaEscolar.API.Dtos;
+﻿using GestionCafeteriaEscolar.API.Dtos;
 using GestionCafeteriaEscolar.Domain.Entities;
+using GestionCafeteriaEscolar.Infrastructure.Core;
+using GestionCafeteriaEscolar.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace GestionCafeteriaEscolar.API.Controllers;
 
@@ -10,21 +10,25 @@ namespace GestionCafeteriaEscolar.API.Controllers;
 [Route("api/[controller]")]
 public class DetallesVentaController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly DetalleVentaRepository _detalleRepository;
+    private readonly GenericRepository<Venta> _ventaRepository;
+    private readonly GenericRepository<Producto> _productoRepository;
 
-    public DetallesVentaController(ApplicationDbContext context)
+    public DetallesVentaController(
+        DetalleVentaRepository detalleRepository,
+        GenericRepository<Venta> ventaRepository,
+        GenericRepository<Producto> productoRepository)
     {
-        _context = context;
+        _detalleRepository = detalleRepository;
+        _ventaRepository = ventaRepository;
+        _productoRepository = productoRepository;
     }
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<DetalleVentaResponseDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IEnumerable<DetalleVentaResponseDto>>> GetAll()
     {
-        var detalles = await _context.DetallesVenta
-            .AsNoTracking()
-            .OrderBy(d => d.Id)
-            .ToListAsync();
+        var detalles = await _detalleRepository.GetAllAsync();
 
         return Ok(detalles.Select(ToResponse));
     }
@@ -34,7 +38,7 @@ public class DetallesVentaController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DetalleVentaResponseDto>> GetById(int id)
     {
-        var detalle = await _context.DetallesVenta.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id);
+        var detalle = await _detalleRepository.GetByIdAsync(id);
         if (detalle is null)
         {
             return NotFound();
@@ -48,13 +52,13 @@ public class DetallesVentaController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<DetalleVentaResponseDto>> Create(DetalleVentaCreateDto dto)
     {
-        var ventaExiste = await _context.Ventas.AnyAsync(v => v.Id == dto.VentaId);
-        if (!ventaExiste)
+        var venta = await _ventaRepository.GetByIdAsync(dto.VentaId);
+        if (venta is null)
         {
             return BadRequest($"La venta con Id {dto.VentaId} no existe.");
         }
 
-        var producto = await _context.Productos.FindAsync(dto.ProductoId);
+        var producto = await _productoRepository.GetByIdAsync(dto.ProductoId);
         if (producto is null)
         {
             return BadRequest($"El producto con Id {dto.ProductoId} no existe.");
@@ -69,8 +73,7 @@ public class DetallesVentaController : ControllerBase
             Subtotal = producto.Precio * dto.Cantidad
         };
 
-        _context.DetallesVenta.Add(detalle);
-        await _context.SaveChangesAsync();
+        await _detalleRepository.AddAsync(detalle);
         await RecalcularTotalAsync(detalle.VentaId);
 
         return CreatedAtAction(nameof(GetById), new { id = detalle.Id }, ToResponse(detalle));
@@ -82,19 +85,19 @@ public class DetallesVentaController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<DetalleVentaResponseDto>> Update(int id, DetalleVentaUpdateDto dto)
     {
-        var detalle = await _context.DetallesVenta.FindAsync(id);
+        var detalle = await _detalleRepository.GetByIdAsync(id);
         if (detalle is null)
         {
             return NotFound();
         }
 
-        var ventaExiste = await _context.Ventas.AnyAsync(v => v.Id == dto.VentaId);
-        if (!ventaExiste)
+        var venta = await _ventaRepository.GetByIdAsync(dto.VentaId);
+        if (venta is null)
         {
             return BadRequest($"La venta con Id {dto.VentaId} no existe.");
         }
 
-        var producto = await _context.Productos.FindAsync(dto.ProductoId);
+        var producto = await _productoRepository.GetByIdAsync(dto.ProductoId);
         if (producto is null)
         {
             return BadRequest($"El producto con Id {dto.ProductoId} no existe.");
@@ -107,7 +110,7 @@ public class DetallesVentaController : ControllerBase
         detalle.Cantidad = dto.Cantidad;
         detalle.PrecioUnitario = producto.Precio;
         detalle.Subtotal = producto.Precio * dto.Cantidad;
-        await _context.SaveChangesAsync();
+        await _detalleRepository.UpdateAsync(detalle);
 
         await RecalcularTotalAsync(detalle.VentaId);
         if (ventaAnteriorId != detalle.VentaId)
@@ -123,7 +126,7 @@ public class DetallesVentaController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id)
     {
-        var detalle = await _context.DetallesVenta.FindAsync(id);
+        var detalle = await _detalleRepository.GetByIdAsync(id);
         if (detalle is null)
         {
             return NotFound();
@@ -131,8 +134,7 @@ public class DetallesVentaController : ControllerBase
 
         var ventaId = detalle.VentaId;
 
-        _context.DetallesVenta.Remove(detalle);
-        await _context.SaveChangesAsync();
+        await _detalleRepository.DeleteAsync(detalle);
         await RecalcularTotalAsync(ventaId);
 
         return NoContent();
@@ -140,16 +142,14 @@ public class DetallesVentaController : ControllerBase
 
     private async Task RecalcularTotalAsync(int ventaId)
     {
-        var venta = await _context.Ventas.FindAsync(ventaId);
+        var venta = await _ventaRepository.GetByIdAsync(ventaId);
         if (venta is null)
         {
             return;
         }
 
-        venta.Total = await _context.DetallesVenta
-            .Where(d => d.VentaId == ventaId)
-            .SumAsync(d => d.Subtotal);
-        await _context.SaveChangesAsync();
+        venta.Total = await _detalleRepository.SumSubtotalByVentaAsync(ventaId);
+        await _ventaRepository.UpdateAsync(venta);
     }
 
     private static DetalleVentaResponseDto ToResponse(DetalleVenta detalle)
