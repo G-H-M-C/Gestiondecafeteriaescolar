@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using GestionCafeteriaEscolar.Domain.Entities;
 using GestionCafeteriaEscolar.Infrastructure.Core;
 using GestionCafeteriaEscolar.Infrastructure.Repositories;
+using GestionCafeteriaEscolar.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,8 +14,12 @@ builder.Services.AddScoped<GenericRepository<Producto>>();
 builder.Services.AddScoped<GenericRepository<Venta>>();
 builder.Services.AddScoped<EstudianteRepository>();
 builder.Services.AddScoped<DetalleVentaRepository>();
-
+builder.Services.AddScoped<ProductoService>();
+builder.Services.AddScoped<EstudianteService>();
+builder.Services.AddScoped<VentaService>();
+builder.Services.AddScoped<DetalleVentaService>();
 builder.Services.AddControllers();
+
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 

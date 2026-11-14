@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace GestionCafeteriaEscolar.API.Dtos;
+namespace GestionCafeteriaEscolar.Application.Dtos;
 
-public class DetalleVentaCreateDto
+public class DetalleVentaUpdateDto
 {
     [Range(1, int.MaxValue, ErrorMessage = "El VentaId debe ser mayor que 0.")]
     public int VentaId { get; set; }

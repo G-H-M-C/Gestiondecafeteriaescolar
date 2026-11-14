@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\GestionCafeteriaEscolar.Domain\GestionCafeteriaEscolar.Domain.csproj" />
     <ProjectReference Include="..\GestionCafeteriaEscolar.Infrastructure\GestionCafeteriaEscolar.Infrastructure.csproj" />
+    <ProjectReference Include="..\GestionCafeteriaEscolar.Application\GestionCafeteriaEscolar.Application.csproj" />
   </ItemGroup>
 
 </Project>

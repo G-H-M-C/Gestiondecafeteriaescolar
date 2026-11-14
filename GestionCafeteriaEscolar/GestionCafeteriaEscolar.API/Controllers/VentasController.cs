@@ -1,7 +1,6 @@
-﻿using GestionCafeteriaEscolar.API.Dtos;
-using GestionCafeteriaEscolar.Domain.Entities;
-using GestionCafeteriaEscolar.Infrastructure.Core;
-using GestionCafeteriaEscolar.Infrastructure.Repositories;
+﻿using GestionCafeteriaEscolar.Application.Core;
+using GestionCafeteriaEscolar.Application.Dtos;
+using GestionCafeteriaEscolar.Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GestionCafeteriaEscolar.API.Controllers;
@@ -10,112 +9,83 @@ namespace GestionCafeteriaEscolar.API.Controllers;
 [Route("api/[controller]")]
 public class VentasController : ControllerBase
 {
-    private readonly GenericRepository<Venta> _ventaRepository;
-    private readonly EstudianteRepository _estudianteRepository;
+	private readonly VentaService _ventaService;
 
-    public VentasController(
-        GenericRepository<Venta> ventaRepository,
-        EstudianteRepository estudianteRepository)
-    {
-        _ventaRepository = ventaRepository;
-        _estudianteRepository = estudianteRepository;
-    }
+	public VentasController(VentaService ventaService)
+	{
+		_ventaService = ventaService;
+	}
 
-    [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<VentaResponseDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IEnumerable<VentaResponseDto>>> GetAll()
-    {
-        var ventas = await _ventaRepository.GetAllAsync();
+	[HttpGet]
+	[ProducesResponseType(typeof(IEnumerable<VentaResponseDto>), StatusCodes.Status200OK)]
+	public async Task<ActionResult<IEnumerable<VentaResponseDto>>> GetAll()
+	{
+		var result = await _ventaService.GetAllAsync();
 
-        return Ok(ventas.Select(ToResponse));
-    }
+		return Ok(result.Data);
+	}
 
-    [HttpGet("{id:int}")]
-    [ProducesResponseType(typeof(VentaResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<VentaResponseDto>> GetById(int id)
-    {
-        var venta = await _ventaRepository.GetByIdAsync(id);
-        if (venta is null)
-        {
-            return NotFound();
-        }
+	[HttpGet("{id:int}")]
+	[ProducesResponseType(typeof(VentaResponseDto), StatusCodes.Status200OK)]
+	[ProducesResponseType(StatusCodes.Status404NotFound)]
+	public async Task<ActionResult<VentaResponseDto>> GetById(int id)
+	{
+		var result = await _ventaService.GetByIdAsync(id);
+		if (result.Type == ResultType.NotFound)
+		{
+			return NotFound();
+		}
 
-        return Ok(ToResponse(venta));
-    }
+		return Ok(result.Data);
+	}
 
-    [HttpPost]
-    [ProducesResponseType(typeof(VentaResponseDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<VentaResponseDto>> Create(VentaCreateDto dto)
-    {
-        var estudiante = await _estudianteRepository.GetByIdAsync(dto.EstudianteId);
-        if (estudiante is null)
-        {
-            return BadRequest($"El estudiante con Id {dto.EstudianteId} no existe.");
-        }
+	[HttpPost]
+	[ProducesResponseType(typeof(VentaResponseDto), StatusCodes.Status201Created)]
+	[ProducesResponseType(StatusCodes.Status400BadRequest)]
+	public async Task<ActionResult<VentaResponseDto>> Create(VentaCreateDto dto)
+	{
+		var result = await _ventaService.CreateAsync(dto);
+		if (result.Type == ResultType.Invalid)
+		{
+			return BadRequest(result.Error);
+		}
 
-        var venta = new Venta
-        {
-            EstudianteId = dto.EstudianteId,
-            Fecha = DateTime.Now,
-            Total = 0
-        };
+		var venta = result.Data!;
 
-        await _ventaRepository.AddAsync(venta);
+		return CreatedAtAction(nameof(GetById), new { id = venta.Id }, venta);
+	}
 
-        return CreatedAtAction(nameof(GetById), new { id = venta.Id }, ToResponse(venta));
-    }
+	[HttpPut("{id:int}")]
+	[ProducesResponseType(typeof(VentaResponseDto), StatusCodes.Status200OK)]
+	[ProducesResponseType(StatusCodes.Status400BadRequest)]
+	[ProducesResponseType(StatusCodes.Status404NotFound)]
+	public async Task<ActionResult<VentaResponseDto>> Update(int id, VentaUpdateDto dto)
+	{
+		var result = await _ventaService.UpdateAsync(id, dto);
+		if (result.Type == ResultType.NotFound)
+		{
+			return NotFound();
+		}
 
-    [HttpPut("{id:int}")]
-    [ProducesResponseType(typeof(VentaResponseDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<VentaResponseDto>> Update(int id, VentaUpdateDto dto)
-    {
-        var venta = await _ventaRepository.GetByIdAsync(id);
-        if (venta is null)
-        {
-            return NotFound();
-        }
+		if (result.Type == ResultType.Invalid)
+		{
+			return BadRequest(result.Error);
+		}
 
-        var estudiante = await _estudianteRepository.GetByIdAsync(dto.EstudianteId);
-        if (estudiante is null)
-        {
-            return BadRequest($"El estudiante con Id {dto.EstudianteId} no existe.");
-        }
+		return Ok(result.Data);
+	}
 
-        venta.EstudianteId = dto.EstudianteId;
-        await _ventaRepository.UpdateAsync(venta);
+	[HttpDelete("{id:int}")]
+	[ProducesResponseType(StatusCodes.Status204NoContent)]
+	[ProducesResponseType(StatusCodes.Status404NotFound)]
+	public async Task<IActionResult> Delete(int id)
+	{
+		var result = await _ventaService.DeleteAsync(id);
+		if (result.Type == ResultType.NotFound)
+		{
+			return NotFound();
+		}
 
-        return Ok(ToResponse(venta));
-    }
-
-    [HttpDelete("{id:int}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> Delete(int id)
-    {
-        var venta = await _ventaRepository.GetByIdAsync(id);
-        if (venta is null)
-        {
-            return NotFound();
-        }
-
-        // Los detalles de la venta se eliminan en cascada en la base de datos.
-        await _ventaRepository.DeleteAsync(venta);
-
-        return NoContent();
-    }
-
-    private static VentaResponseDto ToResponse(Venta venta)
-    {
-        return new VentaResponseDto
-        {
-            Id = venta.Id,
-            EstudianteId = venta.EstudianteId,
-            Fecha = venta.Fecha,
-            Total = venta.Total
-        };
-    }
+		return NoContent();
+	}
 }

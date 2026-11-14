@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\GestionCafeteriaEscolar.Domain\GestionCafeteriaEscolar.Domain.csproj" />
+    <ProjectReference Include="..\GestionCafeteriaEscolar.Infrastructure\GestionCafeteriaEscolar.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

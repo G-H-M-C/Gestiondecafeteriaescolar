@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="GestionCafeteriaEscolar.API/GestionCafeteriaEscolar.API.csproj" />
+  <Project Path="GestionCafeteriaEscolar.Application/GestionCafeteriaEscolar.Application.csproj" />
   <Project Path="GestionCafeteriaEscolar.Domain/GestionCafeteriaEscolar.Domain.csproj" />
   <Project Path="GestionCafeteriaEscolar.Infrastructure/GestionCafeteriaEscolar.Infrastructure.csproj" />
 </Solution>
