@@ -1,4 +1,4 @@
-﻿namespace GestionCafeteriaEscolar.API.Dtos;
+﻿namespace GestionCafeteriaEscolar.Application.Dtos;
 
 public class EstudianteResponseDto
 {

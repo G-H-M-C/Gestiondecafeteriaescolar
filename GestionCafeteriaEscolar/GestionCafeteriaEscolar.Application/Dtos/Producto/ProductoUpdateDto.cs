@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace GestionCafeteriaEscolar.API.Dtos;
+namespace GestionCafeteriaEscolar.Application.Dtos;
 
 public class ProductoUpdateDto
 {
