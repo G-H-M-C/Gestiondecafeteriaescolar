@@ -8,20 +8,24 @@ API REST para registrar productos, estudiantes y ventas diarias de una cafeterí
 - Swagger / OpenAPI para probar los endpoints
 
 ## Arquitectura en capas
-La solución está dividida en tres proyectos:
+La solución está dividida en cuatro proyectos:
 
 ```
 GestionCafeteriaEscolar/
-├── GestionCafeteriaEscolar.API              # Controllers, Dtos, Program.cs
+├── GestionCafeteriaEscolar.API              # Controllers, Program.cs
+├── GestionCafeteriaEscolar.Application      # Core (ServiceResult), Dtos y Services
 ├── GestionCafeteriaEscolar.Domain           # Core (BaseEntity) y Entities
 └── GestionCafeteriaEscolar.Infrastructure   # Context, Migrations, Core (GenericRepository) y Repositories
 ```
 
 - **Domain**: contiene `Core/BaseEntity.cs` y las entidades (`Producto`, `Estudiante`, `Venta`, `DetalleVenta`). No depende de Entity Framework ni de ASP.NET.
 - **Infrastructure**: contiene el `ApplicationDbContext`, las migraciones, el `GenericRepository<T>` y los repositorios propios `EstudianteRepository` y `DetalleVentaRepository`.
-- **API**: contiene los controladores y los DTOs. Los controladores acceden a los datos solo a través de los repositorios.
+- **Application**: contiene los DTOs (organizados por recurso), `ServiceResult<T>` (resultado genérico de los servicios) y los servicios de negocio `ProductoService`, `EstudianteService`, `VentaService` y `DetalleVentaService`, con sus validaciones.
+- **API**: contiene los controladores, que solo reciben la petición, llaman al servicio y devuelven el código HTTP correspondiente.
 
-Referencias entre proyectos: la API referencia a Infrastructure y a Domain, e Infrastructure referencia a Domain.
+Flujo de una petición: Controller → Service → Repository → DbContext → SQL Server.
+
+Referencias entre proyectos: la API referencia a Application; Application referencia a Domain e Infrastructure; Infrastructure referencia a Domain.
 
 ## Entidades
 - **Producto**: Id, Nombre, Precio, Stock
@@ -54,7 +58,7 @@ Recursos: `Productos`, `Estudiantes`, `Ventas` y `DetallesVenta`.
 - El total de la venta se recalcula al crear, actualizar o eliminar sus detalles.
 - Al eliminar una venta se eliminan sus detalles.
 - No se puede eliminar un producto o un estudiante que ya tiene ventas.
-- Los datos de entrada se reciben con DTOs y se validan con Data Annotations. Respuestas: 200, 201, 204, 400 y 404.
+- Los datos de entrada se reciben con DTOs, que se validan con Data Annotations y de nuevo en los servicios. Respuestas: 200, 201, 204, 400 y 404.
 
 ## Base de datos
 - `ApplicationDbContext` está en `GestionCafeteriaEscolar.Infrastructure/Context`.
@@ -72,6 +76,6 @@ Si usas otra instancia de SQL Server, cambia el valor de `DefaultConnection` en 
 
 ## Flujo de trabajo con Git
 - Cada tarea parte de un issue.
-- Se trabaja en una rama `feature/N-nombre` creada desde `develop`.
-- Se abre un Pull Request hacia `develop` y, al terminar, `develop` se integra a `main`.
-- Se abre un Pull Request hacia `develop` y, al terminar, `develop` se integra a `main`.
+- Se trabaja en una rama `feature/N-nombre` creada desde la rama de la tarea (`tarea-4`).
+- Se abre un Pull Request hacia la rama de la tarea.
+- Cada tarea se entrega en su propia rama: `tarea-3` y `tarea-4`.
